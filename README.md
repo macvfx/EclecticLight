@@ -29,6 +29,20 @@ exists, otherwise by downloading the newest build into
 Or double-click `eclectic-updater.command` for a Terminal window that runs a
 report.
 
+## zsh version
+
+The same tool also ships as a dependency-free zsh script (macOS's default
+shell, no Python needed): `eclectic-updater.zsh`. It takes the same commands
+and options as the Python version and produces identical output. Double-click
+`eclectic-updater-zsh.command` for the Terminal-window report, or run it
+directly:
+
+```sh
+./eclectic-updater.zsh check
+./eclectic-updater.zsh update
+./eclectic-updater.zsh organize
+```
+
 ## What it scans
 
 - `/Applications` (including the `/Applications/EclecticLight/` subfolder)
