@@ -1,0 +1,6 @@
+.DS_Store
+__pycache__/
+*.pyc
+SwiftApp/.build/
+SwiftApp/*.app/
+SwiftApp/.DS_Store
