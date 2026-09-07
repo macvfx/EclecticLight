@@ -4,3 +4,5 @@ __pycache__/
 SwiftApp/.build/
 SwiftApp/*.app/
 SwiftApp/.DS_Store
+SwiftApp/Build/
+**/xcuserdata/
