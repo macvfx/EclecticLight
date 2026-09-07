@@ -275,6 +275,7 @@ func availableApps(apps: [AppInfo], catalog: CatalogData) -> [CatalogEntry] {
         !present.contains($0.key)
             && !CatalogFetcher.nonAppPrefixes.contains($0.key)
             && !packageKeys.contains($0.key)
+            && !CatalogFetcher.commandLineKeys.contains($0.key)
             && $0.latest != nil
     }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 }
@@ -386,4 +387,10 @@ func archiveAppInventory(at root: URL) -> [String] {
         }
     }
     return ["Archive inventory: \(count) app bundle(s)"] + lines.sorted()
+}
+
+
+func installationSucceeded(_ entry: CatalogEntry, installed: [AppInfo]) -> Bool {
+    guard let latest = entry.latest else { return false }
+    return installed.contains { $0.key == entry.key && !versionLess($0.version, latest.version) }
 }

@@ -20,6 +20,8 @@ struct CatalogFetcher {
         "skintm": ("skint", "SkintM"),
     ]
 
+    static let commandLineKeys: Set<String> = ["alisma", "blowhole", "cintch", "cmpxat", "unorml"]
+
     static let nonAppPrefixes: Set<String> = [
         "macappscaffold", "scriptbase", "dropsy", "basicpdfviewer",
         "help", "lockrattlerhelp", "swiftscrapbook", "macproblems",
@@ -154,6 +156,13 @@ struct CatalogFetcher {
 
     static func applyCatalogExceptions(to parsed: [String: CatalogEntry]) -> [String: CatalogEntry] {
         var entries = parsed
+        // Verified from the downloaded app bundles. Move rather than duplicate
+        // entries so discovery and installed-app scanning use the same identity.
+        for (source, target) in ["cirrus": "cirrusmac", "t2m2": "thetimemachinemechanic2"] {
+            if let entry = entries.removeValue(forKey: source) {
+                entries[target] = CatalogEntry(key: target, name: entry.name, versions: entry.versions)
+            }
+        }
         for (alias, mapping) in catalogAliases where entries[alias] == nil {
             guard let source = entries[mapping.source] else { continue }
             entries[alias] = CatalogEntry(key: alias,

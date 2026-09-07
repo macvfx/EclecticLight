@@ -2,11 +2,22 @@ import Foundation
 
 @MainActor
 final class AppModel: ObservableObject {
+    @Published private var installedToolVersions = UserDefaults.standard.dictionary(forKey: "installedToolVersions") as? [String: String] ?? [:]
+
+    func isToolInstalled(_ entry: CatalogEntry) -> Bool {
+        guard let version = entry.latest?.version else { return false }
+        return installedToolVersions[entry.key] == version
+    }
+
+    var pendingTools: [CatalogEntry] { commandLineTools.filter { !isToolInstalled($0) } }
+
+    @Published var commandLineTools: [CatalogEntry] = []
     @Published var available: [CatalogEntry] = []
     @Published var rows: [GroupRow] = []
     @Published var staleCopies: [AppInfo] = []
     @Published var looseCopies: [AppInfo] = []
     @Published var organizationCleanupNeeded = false
+    @Published var scanProgress: [String] = []
     @Published var busy = false
     @Published var busyAction = ""
     @Published var statusMessage = "Ready" { didSet { ActivityLog.shared.append(statusMessage) } }
@@ -35,6 +46,7 @@ final class AppModel: ObservableObject {
     func refresh() async {
         guard !busy else { return }
         busy = true
+        scanProgress = []
         busyAction = "Refreshing…"
         statusMessage = "Scanning…"
         do {
@@ -43,24 +55,41 @@ final class AppModel: ObservableObject {
                 NSHomeDirectory() + "/Applications",
                 NSHomeDirectory() + "/Downloads",
             ]
-            let scan = await Task.detached(priority: .userInitiated) {
-                (scanApps(dirs: dirs), hasOrganizationCleanupWork())
-            }.value
-            let apps = scan.0
+            var apps: [AppInfo] = []
+            for (index, directory) in dirs.enumerated() {
+                let displayPath = (directory as NSString).abbreviatingWithTildeInPath
+                busyAction = "Scanning \(displayPath) (\(index + 1)/\(dirs.count))…"
+                statusMessage = busyAction
+                let found = await Task.detached(priority: .userInitiated) {
+                    scanApps(dirs: [directory])
+                }.value
+                apps += found
+                let completed = "\(displayPath): checked, \(found.count) app copies found"
+                scanProgress.append(completed)
+                ActivityLog.shared.append(completed)
+            }
+            busyAction = "Checking organization in /Applications/EclecticLight…"
+            statusMessage = busyAction
+            let cleanupNeeded = await Task.detached { hasOrganizationCleanupWork() }.value
             statusMessage = "Fetching catalog…"
-            busyAction = "Fetching catalog…"
+            busyAction = "Checking downloads at eclecticlight.co and Installomator labels…"
             let newCatalog = try await CatalogFetcher.fetchCatalog()
+            busyAction = "Checking catalog compatibility with " + OSCompatibility.systemDescription
+            await Task.yield()
             catalog = newCatalog
+            commandLineTools = newCatalog.entries.values.filter { CatalogFetcher.commandLineKeys.contains($0.key) }
+                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             available = availableApps(apps: apps, catalog: newCatalog)
             installomatorPath = findInstallomator()
-            apply(analyzeGroups(apps: apps, catalog: newCatalog), cleanupNeeded: scan.1)
-            statusMessage = "Scanned \(apps.count) copy/copies, \(outdatedGroups.count) out of date"
+            apply(analyzeGroups(apps: apps, catalog: newCatalog), cleanupNeeded: cleanupNeeded)
+            statusMessage = "Checked /Applications, ~/Applications and ~/Downloads: \(apps.count) app copies, \(outdatedGroups.count) out of date"
         } catch {
             statusMessage = "Refresh failed: \(error.localizedDescription)"
             log = "Error: \(error)"
         }
         busy = false
         busyAction = ""
+        scanProgress = []
     }
 
     private func apply(_ newRows: [GroupRow], cleanupNeeded: Bool) {
@@ -100,9 +129,39 @@ final class AppModel: ObservableObject {
 
     // MARK: - Actions
 
+    func installTool(_ entry: CatalogEntry) async {
+        await installTools([entry])
+    }
+
+    func installAllTools() async {
+        await installTools(pendingTools)
+    }
+
+    private func installTools(_ entries: [CatalogEntry]) async {
+        guard !busy else { return }
+        let pending = entries.filter { !isToolInstalled($0) }
+        guard !pending.isEmpty else { return }
+        busy = true
+        var succeeded = 0
+        for (index, entry) in pending.enumerated() {
+            busyAction = "Installing \(entry.name) (\(index + 1)/\(pending.count))"
+            let success = await service.installTool(entry)
+            if success, let version = entry.latest?.version {
+                installedToolVersions[entry.key] = version
+                UserDefaults.standard.set(installedToolVersions, forKey: "installedToolVersions")
+                succeeded += 1
+            }
+        }
+        busy = false
+        busyAction = ""
+        statusMessage = "Package installation: \(succeeded) succeeded, \(pending.count - succeeded) failed or cancelled."
+    }
+
     func install(_ entries: [CatalogEntry]) async {
         guard !busy, !entries.isEmpty else { return }
-        performWithFolderSetup { await self.performInstall(entries) }
+        let apps = entries.filter { !CatalogFetcher.commandLineKeys.contains($0.key) }
+        guard !apps.isEmpty else { return }
+        performWithFolderSetup { await self.performInstall(apps) }
     }
 
     private func performInstall(_ entries: [CatalogEntry]) async {
@@ -115,14 +174,21 @@ final class AppModel: ObservableObject {
         }
         busyAction = "Completing installation…"
         let ok = await service.flushPrivileged()
-        lines.append(ok ? "Install operations completed; check results below."
-                       : "Install operations failed or were cancelled.")
+        if !ok { lines.append("Privileged operations failed or were cancelled; verifying installed apps.") }
+        // Verify locally, independently of catalog refresh or stale UI state.
+        let installed = await Task.detached {
+            scanApps(dirs: [BundlePrefix.appsFolder])
+        }.value
+        let succeeded = entries.filter { installationSucceeded($0, installed: installed) }
+        for entry in entries {
+            let success = installationSucceeded(entry, installed: installed)
+            lines.append("\(entry.name): " + (success ? "installed version verified." : "FAILED: expected app/version not found at the installation destination; see errors above."))
+        }
+        let summary = "Installation results: \(succeeded.count) succeeded, \(entries.count - succeeded.count) failed."
+        lines.append(summary)
         busy = false
         await refresh()
-        let remaining = Set(available.map(\.key))
-        for entry in entries where remaining.contains(entry.key) {
-            lines.append("\(entry.name): not found after installation; see errors above.")
-        }
+        statusMessage = summary
         log = lines.joined(separator: "\n")
     }
 

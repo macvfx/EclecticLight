@@ -144,3 +144,39 @@ or run `SwiftApp/build.sh` for an ad-hoc signed local Swift package build.
 Run `swift test --package-path SwiftApp` for catalog, compatibility, archive
 inventory, and persistent-log tests. Developer ID signing and notarization are
 separate release steps; ad-hoc builds are not notarized.
+
+## Mac app 1.2 (build 5)
+
+- Corrected Cirrus and T2M2 catalog identities to match their downloaded bundles.
+- Command-line tools appear separately with **Install Package** and download links.
+  Package installation uses macOS `installer`, requests administrator permission,
+  requires exactly one expected package, and records installer output and result.
+  Tools remain excluded from bulk app-install actions; successful package versions are remembered across launches. Installed buttons are disabled for that version; Install All Packages skips them. External installations or removals are not detected.
+- Refresh shows the folder being scanned, online catalog retrieval, and OS
+  compatibility stage. The busy overlay displays the current OS and latest log activity.
+- Installation results verify app identity and version at the destination and
+  report success/failure counts independently of catalog refresh.
+
+## Mac app 1.3 (build 7): Munki export
+
+Choose **Tools → Make Munki Ready…**, select catalog entries, and choose an
+output folder. Export does not depend on apps installed on this Mac or filter
+by this Mac's OS compatibility. Select All includes the full displayed catalog,
+even when a search is active.
+
+The exporter downloads each distinct ZIP once per run. It selects app bundles
+by catalog identity, copies each into a separate DMG, verifies the image and
+checks its mounted app identity/version. CLI tools are exported as their
+original installer packages. It does not re-sign the publisher's app.
+
+Export names preserve version dots, for example `logui-1.1.dmg`.
+
+Each run creates a new output subfolder with `export-report.txt` and
+`SHA256SUMS.txt`. Only successful items are ready for import. Missing bundle
+matches, ambiguous packages, extraction failures, or validation failures are
+reported; failed artifacts are removed where possible.
+
+Import successful DMGs and packages using MunkiAdmin or `munkiimport`, then
+review installation paths, catalogs and assignments. Export does not modify
+your Munki repository or create deployment policy. See the
+[Munki import guide](https://github.com/munki/munki/wiki/munkiimport).

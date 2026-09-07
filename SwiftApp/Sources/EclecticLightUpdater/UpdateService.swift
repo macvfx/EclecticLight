@@ -63,6 +63,49 @@ final class UpdateService {
         return log.lines
     }
 
+    func installTool(_ entry: CatalogEntry) async -> Bool {
+        guard CatalogFetcher.commandLineKeys.contains(entry.key),
+              let latest = entry.latest, let url = URL(string: latest.url),
+              url.scheme == "https", url.host == "eclecticlight.co" else { return false }
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("elu-tool-" + UUID().uuidString)
+        let archive = root.appendingPathComponent("download.zip")
+        var log = UpdateLog()
+        do {
+            try fm.createDirectory(at: root, withIntermediateDirectories: true)
+            log.add("\(entry.name): downloading package archive from \(url.absoluteString)")
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                log.add("\(entry.name): download failed: unsuccessful HTTP response")
+                return false
+            }
+            try data.write(to: archive)
+            log.add("\(entry.name): extracting package archive")
+            let output = root.appendingPathComponent("extract.log")
+            let code = await runLoggedProcess("/usr/bin/ditto", arguments: ["-x", "-k", archive.path, root.path], output: output)
+            guard code == 0 else {
+                log.add("\(entry.name): extraction failed (\(code)): " + ((try? String(contentsOf: output, encoding: .utf8)) ?? ""))
+                return false
+            }
+            let packages = toolInstallerPackages(at: root, key: entry.key)
+            guard packages.count == 1, let package = packages.first else {
+                log.add("\(entry.name): expected exactly one \(entry.key)Installer.pkg; found \(packages.count). Files retained at \(root.path)")
+                return false
+            }
+            let installOutput = root.appendingPathComponent("installer.log")
+            try Data().write(to: installOutput)
+            log.add("\(entry.name): requesting administrator permission to install \(package.lastPathComponent) on /")
+            let ok = await Shell.runAdmin(script: "/usr/sbin/installer -pkg " + Shell.quote(package.path)
+                + " -target / > " + Shell.quote(installOutput.path) + " 2>&1")
+            log.add((try? String(contentsOf: installOutput, encoding: .utf8)) ?? "Installer output unavailable")
+            log.add("\(entry.name): " + (ok ? "installer exited successfully." : "installer failed or administrator prompt was cancelled.") + " Log: \(installOutput.path)")
+            return ok
+        } catch {
+            log.add("\(entry.name): package installation failed: \(error.localizedDescription)")
+            return false
+        }
+    }
+
     func cleanupStale(_ copies: [AppInfo]) async -> [String] {
         var log = UpdateLog()
         for copy in copies {
@@ -197,22 +240,13 @@ final class UpdateService {
 
         log.add("\(group.name): expected bundle ID=\(BundlePrefix.eclecticlight)\(group.key) (normalized suffix match)")
         log.add("\(group.name): unzipping")
-        let ditto = Process()
-        ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
-        ditto.arguments = ["-x", "-k", zipURL.path, tmpDir.path]
-        ditto.standardOutput = Pipe()
-        ditto.standardError = Pipe()
-        do {
-            try ditto.run()
-            ditto.waitUntilExit()
-        } catch {
-            log.add("\(group.name): unzip failed — \(error.localizedDescription)")
-            return false
-        }
-        log.add("\(group.name): extraction exit status=\(ditto.terminationStatus)")
+        let extractionOutput = tmpDir.appendingPathComponent("extraction.log")
+        let extractionStatus = await runLoggedProcess("/usr/bin/ditto",
+            arguments: ["-x", "-k", zipURL.path, tmpDir.path], output: extractionOutput)
+        log.add("\(group.name): extraction exit status=\(extractionStatus)")
         for line in archiveAppInventory(at: tmpDir) { log.add("\(group.name): \(line)") }
-        guard ditto.terminationStatus == 0 else {
-            log.add("\(group.name): extraction failed (exit \(ditto.terminationStatus)); archive at \(zipURL.path)")
+        guard extractionStatus == 0 else {
+            log.add("\(group.name): extraction failed (exit \(extractionStatus)); archive at \(zipURL.path)")
             return false
         }
         guard let newestApp = newestAppBundle(in: tmpDir.path, matchingKey: group.key) else {
@@ -260,4 +294,168 @@ final class UpdateService {
 func organizeFolderName(_ app: AppInfo) -> String {
     let name = normalize(app.name)
     return name + versionDigits(app.version)
+}
+
+
+/// Use a file for output so verbose child processes cannot fill an unread pipe.
+func runLoggedProcess(_ executable: String, arguments: [String], output: URL) async -> Int32 {
+    do {
+        try Data().write(to: output)
+        let handle = try FileHandle(forWritingTo: output)
+        defer { try? handle.close() }
+        return await withCheckedContinuation { continuation in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: executable)
+            process.arguments = arguments
+            process.standardOutput = handle
+            process.standardError = handle
+            process.terminationHandler = { continuation.resume(returning: $0.terminationStatus) }
+            do { try process.run() } catch { continuation.resume(returning: -1) }
+        }
+    } catch { return -1 }
+}
+
+func toolInstallerPackages(at root: URL, key: String) -> [URL] {
+    guard let enumerator = FileManager.default.enumerator(at: root,
+        includingPropertiesForKeys: [.isSymbolicLinkKey], options: [.skipsHiddenFiles]) else { return [] }
+    var result: [URL] = []
+    for case let url as URL in enumerator {
+        guard url.pathExtension.lowercased() == "pkg" else { continue }
+        if (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true { enumerator.skipDescendants() }
+        guard (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == false else { continue }
+        if normalize(url.deletingPathExtension().lastPathComponent) == key + "installer" { result.append(url) }
+    }
+    return result.sorted { $0.path < $1.path }
+}
+
+@MainActor
+final class MunkiExporter: ObservableObject {
+    @Published var entries: [CatalogEntry] = []
+    @Published var selected: Set<String> = []
+    @Published var busy = false
+    @Published var status = "Load the catalog to choose downloads."
+    @Published var output: URL?
+
+    func load() async {
+        guard !busy else { return }
+        busy = true
+        defer { busy = false }
+        status = "Loading eclecticlight.co catalog…"
+        do {
+            let catalog = try await CatalogFetcher.fetchCatalog()
+            entries = (availableApps(apps: [], catalog: catalog) + catalog.entries.values.filter {
+                CatalogFetcher.commandLineKeys.contains($0.key)
+            }).sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            selected = []
+            status = "Choose apps or packages. Compatibility does not restrict export."
+        } catch { status = "Catalog failed: \(error.localizedDescription)" }
+    }
+
+    func export(to parent: URL) async {
+        guard !busy, !selected.isEmpty else { return }
+        busy = true
+        defer { busy = false }
+        let fm = FileManager.default
+        let folder = parent.appendingPathComponent("EclecticLight-Munki-" + UUID().uuidString)
+        let work = fm.temporaryDirectory.appendingPathComponent("elu-munki-" + UUID().uuidString)
+        var report = ["Eclectic Light Munki export", "Import successful artifacts using munkiimport or MunkiAdmin. Catalogs and assignments are not configured."]
+        var checksums: [String] = []
+        var downloaded: [String: URL] = [:]
+        var successes = 0
+        let chosen = entries.filter { selected.contains($0.key) }
+        do {
+            try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+            try fm.createDirectory(at: work, withIntermediateDirectories: true)
+            output = folder
+            for (index, entry) in chosen.enumerated() {
+                status = "Exporting \(entry.name) (\(index + 1)/\(chosen.count))"
+                var pendingArtifact: URL?
+                do {
+                    guard let latest = entry.latest, let url = URL(string: latest.url),
+                          url.scheme == "https", url.host == "eclecticlight.co" else { throw ExportError.invalidDownload }
+                    report.append("\n\(entry.name) | catalog version=\(latest.version) | source=\(latest.url) | compatibility=\(latest.compat)")
+                    let extracted: URL
+                    if let cached = downloaded[latest.url] { extracted = cached }
+                    else {
+                        extracted = work.appendingPathComponent(UUID().uuidString)
+                        try fm.createDirectory(at: extracted, withIntermediateDirectories: true)
+                        let (data, response) = try await URLSession.shared.data(from: url)
+                        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw ExportError.invalidDownload }
+                        let zip = extracted.appendingPathComponent("source.zip")
+                        try data.write(to: zip)
+                        try await exportCommand("/usr/bin/ditto", ["-x", "-k", zip.path, extracted.path], work: work)
+                        downloaded[latest.url] = extracted
+                    }
+                    let artifact: URL
+                    if CatalogFetcher.commandLineKeys.contains(entry.key) {
+                        let packages = toolInstallerPackages(at: extracted, key: entry.key)
+                        guard packages.count == 1, let package = packages.first else { throw ExportError.ambiguousPackage }
+                        artifact = folder.appendingPathComponent(munkiArtifactName(key: entry.key, version: latest.version, extension: "pkg"))
+                        pendingArtifact = artifact
+                        try await exportCommand("/usr/bin/ditto", [package.path, artifact.path], work: work)
+                    } else {
+                        let apps = scanApps(dirs: [extracted.path]).filter { $0.key == entry.key }
+                        guard let app = apps.max(by: { versionLess($0.version, $1.version) }) else { throw ExportError.noMatchingApp }
+                        guard !versionLess(app.version, latest.version) else { throw ExportError.oldVersion }
+                        let stage = work.appendingPathComponent(UUID().uuidString)
+                        try fm.createDirectory(at: stage, withIntermediateDirectories: true)
+                        let staged = stage.appendingPathComponent(URL(fileURLWithPath: app.path).lastPathComponent)
+                        try await exportCommand("/usr/bin/ditto", [app.path, staged.path], work: work)
+                        artifact = folder.appendingPathComponent(munkiArtifactName(key: entry.key, version: app.version, extension: "dmg"))
+                        pendingArtifact = artifact
+                        try await exportCommand("/usr/bin/hdiutil", ["create", "-srcfolder", stage.path, "-volname", entry.name, "-format", "UDZO", artifact.path], work: work)
+                        try await exportCommand("/usr/bin/hdiutil", ["verify", artifact.path], work: work)
+                        let mount = work.appendingPathComponent(UUID().uuidString)
+                        try fm.createDirectory(at: mount, withIntermediateDirectories: true)
+                        try await exportCommand("/usr/bin/hdiutil", ["attach", "-readonly", "-nobrowse", "-mountpoint", mount.path, artifact.path], work: work)
+                        let mounted = scanApps(dirs: [mount.path])
+                        let valid = mounted.count == 1 && mounted[0].bundleID == app.bundleID && mounted[0].version == app.version
+                        try await exportCommand("/usr/bin/hdiutil", ["detach", mount.path], work: work)
+                        guard valid else { throw ExportError.validationFailed }
+                        report.append("Bundle ID=\(app.bundleID) | actual version=\(app.version) | DMG contents verified")
+                    }
+                    let hashFile = work.appendingPathComponent(UUID().uuidString)
+                    let hashStatus = await runLoggedProcess("/usr/bin/shasum", arguments: ["-a", "256", artifact.path], output: hashFile)
+                    guard hashStatus == 0, let hash = try String(contentsOf: hashFile, encoding: .utf8).split(separator: " ").first else { throw ExportError.validationFailed }
+                    checksums.append("\(hash)  \(artifact.lastPathComponent)")
+                    report.append("SUCCESS: \(artifact.lastPathComponent)")
+                    successes += 1
+                } catch {
+                    if let pendingArtifact { try? fm.removeItem(at: pendingArtifact) }
+                    report.append("FAILED: \(entry.name): \(error.localizedDescription). Only SUCCESS items are ready for import.")
+                }
+                try report.joined(separator: "\n").write(to: folder.appendingPathComponent("export-report.txt"), atomically: true, encoding: .utf8)
+                try (checksums.joined(separator: "\n") + "\n").write(to: folder.appendingPathComponent("SHA256SUMS.txt"), atomically: true, encoding: .utf8)
+            }
+            status = "Export complete: \(successes) succeeded, \(chosen.count - successes) failed."
+            report.append(status)
+            try report.joined(separator: "\n").write(to: folder.appendingPathComponent("export-report.txt"), atomically: true, encoding: .utf8)
+            try? fm.removeItem(at: work)
+        } catch { status = "Export failed: \(error.localizedDescription)" }
+        ActivityLog.shared.append(status)
+    }
+}
+
+enum ExportError: String, LocalizedError {
+    case invalidDownload = "Download URL or HTTP response is invalid."
+    case ambiguousPackage = "Expected exactly one matching package."
+    case noMatchingApp = "No app matched the catalog bundle ID."
+    case oldVersion = "Downloaded app is older than the catalog version."
+    case validationFailed = "Artifact validation failed."
+    var errorDescription: String? { rawValue }
+}
+
+func exportCommand(_ executable: String, _ arguments: [String], work: URL) async throws {
+    let output = work.appendingPathComponent(UUID().uuidString + ".log")
+    let status = await runLoggedProcess(executable, arguments: arguments, output: output)
+    guard status == 0 else {
+        let details = (try? String(contentsOf: output, encoding: .utf8)) ?? ""
+        throw NSError(domain: "MunkiExport", code: Int(status), userInfo: [NSLocalizedDescriptionKey: URL(fileURLWithPath: executable).lastPathComponent + " failed: " + details])
+    }
+}
+
+
+func munkiArtifactName(key: String, version: String, extension fileExtension: String) -> String {
+    let safeVersion = version.filter { $0.isLetter || $0.isNumber || $0 == "." || $0 == "-" || $0 == "_" }
+    return normalize(key) + "-" + safeVersion + "." + fileExtension
 }

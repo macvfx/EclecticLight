@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var model = AppModel()
+    @ObservedObject private var activity = ActivityLog.shared
     @State private var showAvailable = false
     @State private var catalogSearch = ""
     @State private var websiteSearchGroup: GroupRow?
@@ -25,6 +26,17 @@ struct ContentView: View {
                         .controlSize(.large)
                     Text(model.busyAction.isEmpty ? "Working…" : model.busyAction)
                         .font(.headline)
+                    Text(OSCompatibility.systemDescription).font(.caption)
+                    if !model.scanProgress.isEmpty {
+                        VStack(alignment: .leading, spacing: 3) {
+                            ForEach(model.scanProgress, id: \.self) { line in
+                                Label(line, systemImage: "checkmark.circle")
+                            }
+                        }.font(.caption).foregroundStyle(.secondary)
+                    }
+                    Text(activity.text.split(separator: "\n").last.map(String.init) ?? "")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .lineLimit(3).frame(maxWidth: 560)
                 }
                 .padding(28)
                 .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
@@ -143,6 +155,29 @@ struct ContentView: View {
                 }
             }
 
+            if showAvailable && !model.commandLineTools.isEmpty {
+                Section("Command-line tools") {
+                    Text("These downloads contain command-line tools. They are excluded from app installation and both Install All actions. Install Package runs the downloaded installer with administrator permission. Installed means this app successfully ran the installer for the current catalog version. External installations or removals are not detected.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Install All Packages (\(model.pendingTools.count))") {
+                        Task { await model.installAllTools() }
+                    }
+                    .disabled(model.pendingTools.isEmpty)
+                    ForEach(model.commandLineTools, id: \.key) { entry in
+                        HStack {
+                            Text(entry.name)
+                            Spacer()
+                            Button(model.isToolInstalled(entry) ? "Installed" : "Install Package") {
+                                Task { await model.installTool(entry) }
+                            }
+                            .disabled(model.isToolInstalled(entry))
+                            if let url = URL(string: entry.latest?.url ?? "") {
+                                Link("Open Download", destination: url)
+                            }
+                        }
+                    }
+                }
+            }
             if model.rows.isEmpty && !model.busy {
                 Text("No Eclectic Light apps found in /Applications, ~/Applications or ~/Downloads.")
                     .foregroundStyle(.secondary)
