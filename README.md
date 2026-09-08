@@ -180,3 +180,22 @@ Import successful DMGs and packages using MunkiAdmin or `munkiimport`, then
 review installation paths, catalogs and assignments. Export does not modify
 your Munki repository or create deployment policy. See the
 [Munki import guide](https://github.com/munki/munki/wiki/munkiimport).
+
+## Mac app 1.4 (build 9)
+
+- Help now has bold headings and offline **Apps A–Z** and **By Category** views,
+  based on the publisher's Free Software Menu reviewed September 8, 2026.
+- **Tools → Install Installomator…** opens a dedicated setup window. Setup uses
+  the latest official signed release package and verifies local label discovery.
+  Installing the stable release can replace an existing beta version.
+- **Tools → Run Installomator…** lists labels from the installed script, with
+  search and multi-selection. Selected labels run sequentially with `DEBUG=0`,
+  administrator permission, live output, and a final result summary. The queue
+  stops at the first failure/cancellation; Stop After Current leaves the active
+  operation running to completion. Reported success includes already-current apps.
+- The old toolbar setup button was removed. Missing Installomator no longer
+  triggers an implicit script download from the app-update action.
+
+Validation: official package signature and extracted-script label discovery
+passed; parser, directory and simulated queue tests passed. Real administrator
+setup and third-party app installation have not been verified end to end.

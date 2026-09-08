@@ -141,9 +141,3 @@ func findInstallomator() -> String? {
     }
     return nil
 }
-
-func installInstallomator(session: PrivilegedSession) {
-    let url = "https://raw.githubusercontent.com/Installomator/Installomator/main/Installomator.sh"
-    session.add("mkdir -p /usr/local/Installomator && curl -fsSL \(Shell.quote(url)) "
-                + "-o /usr/local/Installomator/Installomator.sh && chmod 755 /usr/local/Installomator/Installomator.sh")
-}

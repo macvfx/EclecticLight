@@ -65,6 +65,9 @@ struct ContentView: View {
         }
         .frame(minWidth: 920, minHeight: 620)
         .task { await model.refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: .init("InstallomatorChanged"))) { _ in
+            model.installomatorPath = findInstallomator()
+        }
         .sheet(item: $websiteSearchGroup) { group in
             SiteSearchView(appName: group.name)
                 .frame(minWidth: 820, minHeight: 620)
@@ -92,11 +95,6 @@ struct ContentView: View {
                 Text(model.busyAction.isEmpty ? "Working…" : model.busyAction)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            }
-            if model.installomatorPath == nil {
-                Button("Install Installomator") {
-                    Task { await model.updateAll() }
-                }
             }
             Toggle("Not downloaded (\(model.available.count))", isOn: $showAvailable)
                 .toggleStyle(.button)

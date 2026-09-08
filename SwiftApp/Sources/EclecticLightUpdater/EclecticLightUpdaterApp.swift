@@ -15,11 +15,10 @@ struct EclecticLightUpdaterApp: App {
         .defaultSize(width: 1000, height: 680)
         .commands { UpdaterHelpCommands() }
         Window("Eclectic Light Updater Help", id: "updater-help") {
-            ScrollView {
-                Text(Self.helpText).textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(24)
-            }.frame(minWidth: 580, minHeight: 480)
+            UpdaterHelpView()
         }
+        Window("Installomator", id: "installomator") { InstallomatorView() }
+
         Window("Make Munki Ready", id: "munki-export") { MunkiExportView() }
         Window("Activity Log", id: "updater-log") {
             ActivityLogView()
@@ -29,9 +28,12 @@ struct EclecticLightUpdaterApp: App {
 
 extension EclecticLightUpdaterApp {
     static let helpText = """
-    Eclectic Light Updater
+    Eclectic Light Updater 1.4
 
     Refresh scans /Applications, ~/Applications and ~/Downloads, then fetches the download catalog. It finds extracted app bundles, not ZIP archives.
+
+    Help directory
+    Use Apps A–Z for an alphabetical index or By Category to browse the bundled product guide. Search filters both views. Product Page links open the publisher’s website. The directory is an offline snapshot; use the download catalog for current versions and compatibility.
 
     Install apps
     Choose Not downloaded to browse or search missing apps. Install downloads one app. Install All includes every missing catalog app. Install All Compatible includes only apps whose latest description matches your macOS, regardless of the search filter.
@@ -46,6 +48,10 @@ extension EclecticLightUpdaterApp {
 
     Update and organize
     Update All updates out-of-date apps. Downloads are installed under /Applications/EclecticLight. Organize flattens app folders and collects PDF/RTF documents into ReadMe. Clean up moves stale installed copies to Trash. File operations may request an administrator password.
+
+    Installomator
+    Tools → Install Installomator opens the setup window. Its Install Installomator button downloads the latest official release package, validates its signature, and requests administrator permission. This is separate from app updates and may replace an existing Installomator installation with the latest stable release.
+    Tools → Run Installomator opens the same window. Refresh Labels reads the installed script, not an online label list. Search and select labels, review the selection, then choose Install Selected. The queue stops on failure or cancellation. Stop After Current allows the active installation to finish. Output is also saved in Show Log. A reported success can mean an app was already current; check the per-label output.
 
     Munki export
     Tools → Make Munki Ready lets you select catalog downloads and an output folder. Each selected app is exported as a separate validated DMG; CLI tools keep their original installer package. Downloads shared by suite apps are reused during the run. Exports are independent of local installation and OS compatibility. Select All includes entries hidden by search.
@@ -69,6 +75,10 @@ struct UpdaterHelpCommands: Commands {
     @Environment(\.openWindow) private var openWindow
     var body: some Commands {
         CommandMenu("Tools") {
+            Button("Install Installomator…") {
+                openWindow(id: "installomator")
+            }
+            Button("Run Installomator…") { openWindow(id: "installomator") }
             Button("Make Munki Ready…") { openWindow(id: "munki-export") }
         }
         CommandGroup(replacing: .help) {

@@ -22,8 +22,8 @@ targets:
       base:
         PRODUCT_NAME: "Eclectic Light Updater"
         PRODUCT_BUNDLE_IDENTIFIER: co.eclecticlightupdater.app
-        MARKETING_VERSION: "1.3"
-        CURRENT_PROJECT_VERSION: "7"
+        MARKETING_VERSION: "1.4"
+        CURRENT_PROJECT_VERSION: "9"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
       path: Info.plist

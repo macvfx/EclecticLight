@@ -8,12 +8,15 @@
 
 /* Begin PBXBuildFile section */
 		125FC0DE5E40C1A653493048 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B41DFB6E3D7FA644F131D91 /* Models.swift */; };
+		159069534BC269940C65690A /* InstallomatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5FAAA1492F8DCCA93A70E45 /* InstallomatorView.swift */; };
 		2BBC97FDF9BA4D1777F50C36 /* Catalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C885B60690B7FD8EB294F4FD /* Catalog.swift */; };
+		3ACB02029683F81B851D54C8 /* HelpDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC017145A6DC8E67811E80E3 /* HelpDirectory.swift */; };
 		3EAB44EB87957C931BDC9F1E /* EclecticLightUpdaterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14428CA9BAFACB6AC67989F5 /* EclecticLightUpdaterApp.swift */; };
+		40EF9AEB5F410B919F7FA40B /* InstallomatorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9A851F0827D2ED16C81370 /* InstallomatorModel.swift */; };
 		8F108E7FD6C6EE4A3D38972D /* PrivilegeRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20B84C7F4AD120CAC20CD5FC /* PrivilegeRunner.swift */; };
-		A11E57EA8C4A4B2A91C10001 /* SiteSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E57EA8C4A4B2A91C10002 /* SiteSearchView.swift */; };
 		B9877F4F57DB42221CFE9796 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7AEB2B79954783FBE20495 /* ContentView.swift */; };
 		E1CB0FD03ECB0113B98CCF7D /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F85C74B9BDC576186AFAD14 /* UpdateService.swift */; };
+		EFDF2FF0B27E7713C7EDAB8E /* SiteSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76CB6EC7404BE693F93D56F8 /* SiteSearchView.swift */; };
 		F8431BE999A8A4A76AE2341E /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0716F84B6FE1F008303D4D5C /* AppModel.swift */; };
 		FB6C3FF9A61AFCE5EA4FB1DC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 788D9D216BD13792CE281B1D /* Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -22,12 +25,15 @@
 		0716F84B6FE1F008303D4D5C /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		14428CA9BAFACB6AC67989F5 /* EclecticLightUpdaterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EclecticLightUpdaterApp.swift; sourceTree = "<group>"; };
 		20B84C7F4AD120CAC20CD5FC /* PrivilegeRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivilegeRunner.swift; sourceTree = "<group>"; };
+		76CB6EC7404BE693F93D56F8 /* SiteSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiteSearchView.swift; sourceTree = "<group>"; };
 		788D9D216BD13792CE281B1D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7F85C74B9BDC576186AFAD14 /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
+		8F9A851F0827D2ED16C81370 /* InstallomatorModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallomatorModel.swift; sourceTree = "<group>"; };
 		9B41DFB6E3D7FA644F131D91 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
-		A11E57EA8C4A4B2A91C10002 /* SiteSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiteSearchView.swift; sourceTree = "<group>"; };
-		A546AB432B2DE093BC5D1919 /* Eclectic Light Updater.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Eclectic Light Updater.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A546AB432B2DE093BC5D1919 /* EclecticLightUpdater.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EclecticLightUpdater.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AC017145A6DC8E67811E80E3 /* HelpDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpDirectory.swift; sourceTree = "<group>"; };
 		C885B60690B7FD8EB294F4FD /* Catalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Catalog.swift; sourceTree = "<group>"; };
+		D5FAAA1492F8DCCA93A70E45 /* InstallomatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallomatorView.swift; sourceTree = "<group>"; };
 		FF7AEB2B79954783FBE20495 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -52,7 +58,7 @@
 		79AD568688208D7791A81C9E /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A546AB432B2DE093BC5D1919 /* Eclectic Light Updater.app */,
+				A546AB432B2DE093BC5D1919 /* EclecticLightUpdater.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -72,9 +78,12 @@
 				C885B60690B7FD8EB294F4FD /* Catalog.swift */,
 				FF7AEB2B79954783FBE20495 /* ContentView.swift */,
 				14428CA9BAFACB6AC67989F5 /* EclecticLightUpdaterApp.swift */,
+				AC017145A6DC8E67811E80E3 /* HelpDirectory.swift */,
+				8F9A851F0827D2ED16C81370 /* InstallomatorModel.swift */,
+				D5FAAA1492F8DCCA93A70E45 /* InstallomatorView.swift */,
 				9B41DFB6E3D7FA644F131D91 /* Models.swift */,
 				20B84C7F4AD120CAC20CD5FC /* PrivilegeRunner.swift */,
-				A11E57EA8C4A4B2A91C10002 /* SiteSearchView.swift */,
+				76CB6EC7404BE693F93D56F8 /* SiteSearchView.swift */,
 				7F85C74B9BDC576186AFAD14 /* UpdateService.swift */,
 			);
 			path = EclecticLightUpdater;
@@ -98,7 +107,7 @@
 			packageProductDependencies = (
 			);
 			productName = EclecticLightUpdater;
-			productReference = A546AB432B2DE093BC5D1919 /* Eclectic Light Updater.app */;
+			productReference = A546AB432B2DE093BC5D1919 /* EclecticLightUpdater.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -108,7 +117,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2660;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					E78AC11004E5351B24BF6F96 = {
 						DevelopmentTeam = K3T7J454P7;
@@ -154,10 +163,13 @@
 				F8431BE999A8A4A76AE2341E /* AppModel.swift in Sources */,
 				2BBC97FDF9BA4D1777F50C36 /* Catalog.swift in Sources */,
 				B9877F4F57DB42221CFE9796 /* ContentView.swift in Sources */,
-				A11E57EA8C4A4B2A91C10001 /* SiteSearchView.swift in Sources */,
 				3EAB44EB87957C931BDC9F1E /* EclecticLightUpdaterApp.swift in Sources */,
+				3ACB02029683F81B851D54C8 /* HelpDirectory.swift in Sources */,
+				40EF9AEB5F410B919F7FA40B /* InstallomatorModel.swift in Sources */,
+				159069534BC269940C65690A /* InstallomatorView.swift in Sources */,
 				125FC0DE5E40C1A653493048 /* Models.swift in Sources */,
 				8F108E7FD6C6EE4A3D38972D /* PrivilegeRunner.swift in Sources */,
+				EFDF2FF0B27E7713C7EDAB8E /* SiteSearchView.swift in Sources */,
 				E1CB0FD03ECB0113B98CCF7D /* UpdateService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -170,14 +182,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 7;
-				DEAD_CODE_STRIPPING = YES;
+				CURRENT_PROJECT_VERSION = 9;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = co.eclecticlightupdater.app;
 				PRODUCT_NAME = "Eclectic Light Updater";
 				SDKROOT = macosx;
@@ -189,14 +200,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 7;
-				DEAD_CODE_STRIPPING = YES;
+				CURRENT_PROJECT_VERSION = 9;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = co.eclecticlightupdater.app;
 				PRODUCT_NAME = "Eclectic Light Updater";
 				SDKROOT = macosx;
@@ -207,7 +217,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -239,13 +248,11 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = K3T7J454P7;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -266,7 +273,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
@@ -277,7 +283,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -309,13 +314,11 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = K3T7J454P7;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -329,7 +332,6 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;

@@ -29,12 +29,11 @@ final class UpdateService {
         case .installomator:
             guard let label = g.key as String? else { return ["\(g.name): no label"] }
             if let path = installomatorPath {
-                session.add("\(Shell.quote(path)) \(label) NOTIFY=silent")
+                session.add("\(Shell.quote(path)) \(label) DEBUG=0 NOTIFY=silent")
                 log.add("\(g.name): queued Installomator update (\(label))")
             } else {
-                installInstallomator(session: session)
-                session.add("\(Shell.quote("/usr/local/Installomator/Installomator.sh")) \(label) NOTIFY=silent")
-                log.add("\(g.name): Installomator missing — queued install + update (\(label))")
+                log.add("\(g.name): Installomator is missing. Use Tools → Install Installomator, then retry.")
+                return log.lines
             }
         case .download:
             let ok = await downloadAndInstall(group: g, log: &log)

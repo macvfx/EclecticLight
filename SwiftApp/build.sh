@@ -7,8 +7,8 @@ cd "$(dirname "$0")"
 swift build -c release
 
 APP="EclecticLightUpdater.app"
-VERSION="1.3"
-BUILD="7"
+VERSION="1.4"
+BUILD="9"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 
