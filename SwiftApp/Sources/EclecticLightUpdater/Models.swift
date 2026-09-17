@@ -136,7 +136,6 @@ func versionDigits(_ v: String) -> String {
 func scanApps(dirs: [String]) -> [AppInfo] {
     var results: [AppInfo] = []
     for base in dirs {
-        guard FileManager.default.fileExists(atPath: base) else { continue }
         collectApps(in: base, into: &results)
     }
     return results
@@ -144,11 +143,13 @@ func scanApps(dirs: [String]) -> [AppInfo] {
 
 private func collectApps(in dir: String, into results: inout [AppInfo]) {
     let fm = FileManager.default
+    // fileExists(isDirectory:) follows symlinks. Inspect the directory entry
+    // itself instead, including scan roots, to avoid aliases and link cycles.
+    guard (try? fm.attributesOfItem(atPath: dir)[.type]) as? FileAttributeType == .typeDirectory else { return }
     let items = (try? fm.contentsOfDirectory(atPath: dir)) ?? []
     for item in items {
         let path = (dir as NSString).appendingPathComponent(item)
-        var isDir: ObjCBool = false
-        guard fm.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else { continue }
+        guard (try? fm.attributesOfItem(atPath: path)[.type]) as? FileAttributeType == .typeDirectory else { continue }
         if item.hasSuffix(".app") {
             if let app = readApp(path: path) { results.append(app) }
         } else {

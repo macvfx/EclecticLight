@@ -1,6 +1,6 @@
 # Eclectic Light Updater
 
-Latest Mac app: **1.5 (build 10)** — [release notes](docs/releases/1.5.md).
+Latest Mac app: **1.5.1 (build 11)** — [release notes](docs/releases/1.5.1.md).
 
 Scans a Mac for apps from **The Eclectic Light Company** (bundle id
 `co.eclecticlight.*` — Howard Oakley's utilities such as SilentKnight,
@@ -212,3 +212,10 @@ setup and third-party app installation have not been verified end to end.
   the publisher believes compatible. Omission from the list is not a failure.
 
 See the [release notes and compatibility limits](docs/releases/1.5.md).
+
+## Mac app 1.5.1 (build 11)
+
+App discovery skips symbolic links to folders and app bundles, including
+symbolic-link scan roots. This prevents linked Applications folders from
+appearing as additional copies and avoids directory-link cycles. Genuine
+app copies in different folders are still listed independently.
