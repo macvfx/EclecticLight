@@ -182,7 +182,7 @@ struct CatalogFetcher {
                 )]
             )
         }
-        return entries
+        return applyGoldenGateCompatibility(to: entries)
     }
 
     // MARK: - Installomator label matching
@@ -193,5 +193,81 @@ struct CatalogFetcher {
             out[key] = key
         }
         return out
+    }
+}
+
+
+extension CatalogFetcher {
+    static let goldenGateSourceURL = "https://eclecticlight.co/2026/09/12/which-of-my-apps-for-macos-golden-gate/"
+
+    // Dated publisher evidence, scoped to the exact release and download URL.
+    // Preserve live descriptions and newer releases; omission is not incompatibility.
+    // The article says 37 apps, but enumerates 38 app releases and five CLI tools.
+    static let goldenGateReleases: [(key: String, name: String, version: String, url: String, note: String)] = [
+        ("alifix", "Alifix", "1.4", "https://eclecticlight.co/wp-content/uploads/2025/07/alifix14.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("apfelstrudel", "Apfelstrudel", "1.6", "https://eclecticlight.co/wp-content/uploads/2025/06/apfelstrudel16.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("cirrusmac", "Cirrus", "1.16", "https://eclecticlight.co/wp-content/uploads/2025/06/cirrus116.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026. Further feature and interface work planned."),
+        ("cormorant", "Cormorant", "1.6", "https://eclecticlight.co/wp-content/uploads/2025/07/cormorant16.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("delighted", "DelightEd", "2.5", "https://eclecticlight.co/wp-content/uploads/2026/03/delighted25.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("deltafree", "DeltaFree", "1.1", "https://eclecticlight.co/wp-content/uploads/2026/08/deltafree11.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("dintch", "Dintch", "1.8", "https://eclecticlight.co/wp-content/uploads/2025/07/dintch18.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("disclipper", "Disclipper", "1.0", "https://eclecticlight.co/wp-content/uploads/2026/01/disclipper10.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("dropsum", "DropSum", "1.2", "https://eclecticlight.co/wp-content/uploads/2025/08/dropsum12.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("dystextia", "Dystextia", "1.9", "https://eclecticlight.co/wp-content/uploads/2025/07/dystextia19.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("fintch", "Fintch", "1.4", "https://eclecticlight.co/wp-content/uploads/2025/07/fintch14.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("logistician", "Logistician", "1.5", "https://eclecticlight.co/wp-content/uploads/2026/09/logistician15.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("logui", "LogUI", "1.1", "https://eclecticlight.co/wp-content/uploads/2026/07/logui11.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026. Applies to build 88."),
+        ("metamer", "Metamer", "1.6", "https://eclecticlight.co/wp-content/uploads/2025/07/metamer16.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("mints", "Mints", "1.22", "https://eclecticlight.co/wp-content/uploads/2026/07/mints122.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("nalaprop", "Nalaprop", "1.4", "https://eclecticlight.co/wp-content/uploads/2025/07/nalaprop14.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("podofyllin", "Podofyllin", "1.4", "https://eclecticlight.co/wp-content/uploads/2025/06/podofyllin14.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026. The article lists stable 1.4; 1.5 was in beta."),
+        ("precize", "Precize", "1.16", "https://eclecticlight.co/wp-content/uploads/2025/06/precize116.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("providable", "Providable", "1.2", "https://eclecticlight.co/wp-content/uploads/2026/01/providable12.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("quarant2", "Quarant2", "1.0", "https://eclecticlight.co/wp-content/uploads/2026/06/quarant21.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("revisionist", "Revisionist", "1.10", "https://eclecticlight.co/wp-content/uploads/2025/06/revisionist110.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("silentknight", "SilentKnight", "2.14", "https://eclecticlight.co/wp-content/uploads/2026/03/silentknight214.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026. Publisher prefers SilentKnight 3."),
+        ("silentknight3", "SilentKnight 3", "3.02", "https://eclecticlight.co/wp-content/uploads/2026/07/sk302.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026. Apple silicon only."),
+        ("sparsity", "Sparsity", "1.4", "https://eclecticlight.co/wp-content/uploads/2025/07/sparsity14.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("spotcord", "Spotcord", "1.0", "https://eclecticlight.co/wp-content/uploads/2025/07/spotcord10.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("spottest", "SpotTest", "1.3", "https://eclecticlight.co/wp-content/uploads/2026/07/spottest13.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("spundle", "Spundle", "1.9", "https://eclecticlight.co/wp-content/uploads/2025/06/spundle19.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("stibium", "Stibium", "1.2", "https://eclecticlight.co/wp-content/uploads/2025/07/stibium12.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("systhist", "SystHist", "1.22", "https://eclecticlight.co/wp-content/uploads/2026/06/systhist122.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("textovert", "Textovert", "1.1", "https://eclecticlight.co/wp-content/uploads/2025/11/textovert11.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("thetimemachinemechanic2", "The Time Machine Mechanic (T2M2)", "2.03", "https://eclecticlight.co/wp-content/uploads/2025/06/t2m2203.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026. Time Machine fixes may follow further experience."),
+        ("utiutility", "UTIutility", "1.4", "https://eclecticlight.co/wp-content/uploads/2025/07/utiutil14.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("versatility", "Versatility", "1.2", "https://eclecticlight.co/wp-content/uploads/2026/06/versatility12.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("viable", "Viable", "1.0.12", "https://eclecticlight.co/wp-content/uploads/2023/11/viable1b12.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026. Further feature and interface work planned. Apple silicon only."),
+        ("viables", "ViableS", "1.0.12", "https://eclecticlight.co/wp-content/uploads/2023/11/viables1b12.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026. Further feature and interface work planned. Apple silicon only."),
+        ("vimy", "Vimy", "0.7", "https://eclecticlight.co/wp-content/uploads/2023/11/vimy07.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026. Further feature and interface work planned. Apple silicon only."),
+        ("xattred", "xattred", "1.7", "https://eclecticlight.co/wp-content/uploads/2025/12/xattred17.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("xprocheck", "XProCheck", "1.7", "https://eclecticlight.co/wp-content/uploads/2025/06/xprocheck17.zip", "Publisher-tested for Golden Gate (macOS 27); September 12, 2026."),
+        ("alisma", "alisma", "4", "https://eclecticlight.co/wp-content/uploads/2023/07/alisma4.zip", "Publisher believes compatible with Golden Gate (macOS 27); September 12, 2026."),
+        ("blowhole", "blowhole", "11", "https://eclecticlight.co/wp-content/uploads/2023/07/blowhole11.zip", "Publisher believes compatible with Golden Gate (macOS 27); September 12, 2026."),
+        ("cintch", "cintch", "3", "https://eclecticlight.co/wp-content/uploads/2023/07/cintch3.zip", "Publisher believes compatible with Golden Gate (macOS 27); September 12, 2026."),
+        ("cmpxat", "cmpxat", "4", "https://eclecticlight.co/wp-content/uploads/2023/07/cmpxat4.zip", "Publisher believes compatible with Golden Gate (macOS 27); September 12, 2026."),
+        ("unorml", "unorml", "5", "https://eclecticlight.co/wp-content/uploads/2023/07/unorml5.zip", "Publisher believes compatible with Golden Gate (macOS 27); September 12, 2026."),
+    ]
+
+    static func applyGoldenGateCompatibility(to parsed: [String: CatalogEntry]) -> [String: CatalogEntry] {
+        var entries = parsed
+        for release in goldenGateReleases {
+            var entry = entries[release.key] ?? CatalogEntry(key: release.key, name: release.name)
+            if let index = entry.versions.firstIndex(where: {
+                $0.version == release.version && $0.url == release.url
+            }) {
+                let existing = entry.versions[index]
+                if !existing.compat.contains(release.note) {
+                    entry.versions[index] = CatalogVersion(version: existing.version, url: existing.url,
+                        compat: [existing.compat, release.note].filter { !$0.isEmpty }.joined(separator: " "))
+                }
+            } else if !entry.versions.contains(where: { $0.version == release.version || $0.url == release.url }) {
+                // Supply an article-listed release missing from the downloads page.
+                // Never substitute evidence for another archive with the same version.
+                entry.versions.append(CatalogVersion(version: release.version, url: release.url, compat: release.note))
+            }
+            entries[release.key] = entry
+        }
+        return entries
     }
 }

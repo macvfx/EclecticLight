@@ -290,7 +290,7 @@ enum OSCompatibility: String {
         ("El Capitan", "10.11"), ("High Sierra", "10.13"), ("Sierra", "10.12"),
         ("Mojave", "10.14"), ("Catalina", "10.15"), ("Big Sur", "11"),
         ("Monterey", "12"), ("Ventura", "13"), ("Sonoma", "14"),
-        ("Sequoia", "15"), ("Tahoe", "26")
+        ("Sequoia", "15"), ("Tahoe", "26"), ("Golden Gate", "27")
     ]
 
     static var systemDescription: String {

@@ -1,5 +1,7 @@
 # Eclectic Light Updater
 
+Latest Mac app: **1.5 (build 10)** — [release notes](docs/releases/1.5.md).
+
 Scans a Mac for apps from **The Eclectic Light Company** (bundle id
 `co.eclecticlight.*` — Howard Oakley's utilities such as SilentKnight,
 SystHist, xattred, Ulbow, LockRattler…), compares every copy found against the
@@ -199,3 +201,14 @@ your Munki repository or create deployment policy. See the
 Validation: official package signature and extracted-script label discovery
 passed; parser, directory and simulated queue tests passed. Real administrator
 setup and third-party app installation have not been verified end to end.
+
+## Mac app 1.5 (build 10)
+
+- Recognizes macOS 27 Golden Gate in compatibility descriptions and OS labels.
+- Supplements the live catalog with the publisher’s September 12, 2026
+  compatibility list, matched by exact version and download URL.
+- Preserves newer catalog releases, existing descriptions, hardware caveats,
+  LogUI’s build 88 note, and the distinction between tested apps and CLI tools
+  the publisher believes compatible. Omission from the list is not a failure.
+
+See the [release notes and compatibility limits](docs/releases/1.5.md).

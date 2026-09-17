@@ -28,7 +28,7 @@ struct EclecticLightUpdaterApp: App {
 
 extension EclecticLightUpdaterApp {
     static let helpText = """
-    Eclectic Light Updater 1.4
+    Eclectic Light Updater 1.5
 
     Refresh scans /Applications, ~/Applications and ~/Downloads, then fetches the download catalog. It finds extracted app bundles, not ZIP archives.
 
@@ -45,6 +45,9 @@ extension EclecticLightUpdaterApp {
 
     Compatibility
     Green means the publisher’s description lists your macOS or a matching range. Orange means it may not be compatible. Unknown means the description is missing or unclear. This is an OS description check, not a hardware check or a guarantee that the app will run.
+
+    macOS 27 Golden Gate is recognized. The September 12, 2026 publisher compatibility list supplements matching download versions and URLs, retaining the publisher’s caveats. Other versions do not inherit that article’s compatibility evidence. LogUI’s note applies to build 88; SilentKnight 3 requires Apple silicon. Command-line tool notes reflect the publisher’s belief in compatibility. An app absent from the list is not automatically incompatible.
+    Source: https://eclecticlight.co/2026/09/12/which-of-my-apps-for-macos-golden-gate/
 
     Update and organize
     Update All updates out-of-date apps. Downloads are installed under /Applications/EclecticLight. Organize flattens app folders and collects PDF/RTF documents into ReadMe. Clean up moves stale installed copies to Trash. File operations may request an administrator password.
