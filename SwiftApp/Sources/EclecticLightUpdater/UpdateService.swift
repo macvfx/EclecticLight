@@ -145,8 +145,8 @@ final class UpdateService {
                 }
                 continue
             }
-            FileOps.move(URL(fileURLWithPath: copy.path), to: dest, session: session)
-            log.add("move \(copy.path) -> \(dest.path)")
+            let outcome = FileOps.move(URL(fileURLWithPath: copy.path), to: dest, session: session)
+            log.add("\(Self.describe(outcome, verb: "move")) \(copy.path) -> \(dest.path)")
         }
         collectReadMeDocuments(log: &log)
         let readMeFolder = FileOps.appsFolder + "/ReadMe"
@@ -155,6 +155,15 @@ final class UpdateService {
                                    session: session)
         log.add("remove empty folders below \(FileOps.appsFolder)")
         return log.lines
+    }
+
+    /// Log wording for a move, saying whether it has happened or is waiting for the prompt.
+    private static func describe(_ outcome: FileOps.MoveOutcome, verb: String) -> String {
+        switch outcome {
+        case .moved: return verb
+        case .queued: return "\(verb) (needs administrator rights)"
+        case .failed: return "\(verb) FAILED, left in place:"
+        }
     }
 
     private func collectReadMeDocuments(log: inout UpdateLog) {
@@ -185,8 +194,8 @@ final class UpdateService {
         for source in documents.sorted(by: { $0.path < $1.path }) {
             let destinationName = uniqueDocumentName(source.lastPathComponent, reserved: &reserved)
             let destination = readMe.appendingPathComponent(destinationName)
-            FileOps.move(source, to: destination, session: session)
-            log.add("readme \(source.path) -> \(destination.path)")
+            let outcome = FileOps.move(source, to: destination, session: session)
+            log.add("\(Self.describe(outcome, verb: "readme")) \(source.path) -> \(destination.path)")
         }
     }
 
@@ -263,8 +272,12 @@ final class UpdateService {
             return false
         }
         FileOps.ensureFolder(FileOps.appsFolder, session: session)
-        FileOps.move(URL(fileURLWithPath: newestApp), to: dest, session: session)
-        log.add("\(group.name): prepared \(latest.version) for installation at \(dest.path)")
+        let outcome = FileOps.move(URL(fileURLWithPath: newestApp), to: dest, session: session)
+        guard outcome != .failed else {
+            log.add("\(group.name): could not move \(latest.version) into \(dest.path); the download is at \(newestApp)")
+            return false
+        }
+        log.add("\(group.name): \(outcome == .moved ? "installed" : "prepared") \(latest.version) \(outcome == .moved ? "at" : "for installation at") \(dest.path)")
         return true
     }
 

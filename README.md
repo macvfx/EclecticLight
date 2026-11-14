@@ -1,6 +1,6 @@
 # Eclectic Light Updater
 
-Latest Mac app: **1.5.2 (build 12)** — [release notes](docs/releases/1.5.2.md).
+Latest Mac app: **1.5.3 (build 13)** — [release notes](docs/releases/1.5.3.md).
 
 Scans a Mac for apps from **The Eclectic Light Company** (bundle id
 `co.eclecticlight.*` — Howard Oakley's utilities such as SilentKnight,
@@ -219,6 +219,16 @@ setup and third-party app installation have not been verified end to end.
   the publisher believes compatible. Omission from the list is not a failure.
 
 See the [release notes and compatibility limits](docs/releases/1.5.md).
+
+## Mac app 1.5.3 (build 13)
+
+Organize no longer asks for an administrator password when nothing needs one.
+It used to end every run with a prompt, because an elevated cleanup pass was
+queued whether or not there was anything for it to do. A folder that does have
+to be created with administrator rights is now handed back to you, so the next
+run needs none.
+
+See the [release notes](docs/releases/1.5.3.md).
 
 ## Mac app 1.5.2 (build 12)
 
