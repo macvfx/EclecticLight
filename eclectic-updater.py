@@ -6,13 +6,13 @@ compare installed versions against https://eclecticlight.co/downloads/, and upda
 out-of-date apps via Installomator labels when available.
 
 All copies found are candidates for update — in /Applications, ~/Applications,
-~/Downloads or any custom folder. Copies can also be tidied into
-/Applications/EclecticLight/ (created if missing).
+~/Downloads or any custom folder. Organize flattens copies into
+/Applications/EclecticLight/ (created if missing) and collects their documents.
 
 Modes:
   check     (default) scan and report only
   update    update every out-of-date copy found (Installomator label, or download)
-  organize  move loose copies into /Applications/EclecticLight/
+  organize  flatten apps into /Applications/EclecticLight/, collect PDF/RTF docs
 
 Examples:
   ./eclectic-updater.py check
@@ -28,6 +28,7 @@ import datetime
 import os
 import plistlib
 import re
+import shlex
 import subprocess
 import sys
 import urllib.request
@@ -43,11 +44,34 @@ INSTALLOMATOR_SCRIPT_URL = (
 )
 DOWNLOADS_DIR = os.path.expanduser("~/Downloads")
 ECLECTICLIGHT_FOLDER = "/Applications/EclecticLight"
+README_FOLDER_NAME = "ReadMe"
 DEFAULT_SEARCH_DIRS = ["/Applications", os.path.expanduser("~/Applications"), DOWNLOADS_DIR]
 
 # zip-name prefixes that do not decode cleanly to the bundle-id app name
 ZIP_PREFIX_OVERRIDES = {
     "sk": "silentknight3",  # sk302.zip is SilentKnight 3 (Apple silicon)
+}
+
+# Some downloads contain multiple app bundles whose bundle-id suffixes differ
+# from the suite name shown on the main downloads page.
+CATALOG_ALIASES = {
+    "deeparchive": ("deeptools", "DeepArchive"),
+    "deepunarchive": ("deeptools", "DeepUnarchive"),
+    "deepcopy": ("deeptools", "DeepCopy"),
+    "skintm": ("skint", "SkintM"),
+}
+
+# Verified downloads that aren't listed on the main downloads page. Keep these
+# source-backed and remove an entry if the main page starts listing it.
+SUPPLEMENTAL_CATALOG = {
+    "appexindexer": (
+        "AppexIndexer",
+        [(
+            "1.1",
+            "https://eclecticlight.co/wp-content/uploads/2025/06/appexindexer11.zip",
+            "(Sonoma 14.6 and later)",
+        )],
+    ),
 }
 
 
@@ -125,10 +149,9 @@ def group_apps(apps):
     return groups
 
 
-def organize_folder_name(app):
-    name = re.sub(r"[^a-z0-9]", "", app.name.lower())
-    digits = re.sub(r"\D", "", app.version)
-    return f"{name}{digits}"
+def needs_organization(app):
+    """True unless the app bundle is already directly inside the main folder."""
+    return os.path.dirname(os.path.abspath(app.path)) != os.path.abspath(ECLECTICLIGHT_FOLDER)
 
 
 def normalize(name):
@@ -206,7 +229,27 @@ def build_catalog(html):
 
         entry = entries.setdefault(key, CatalogEntry(key=key, name=name))
         entry.versions.append((version, url, compat))
+    apply_catalog_exceptions(entries)
     return entries
+
+
+def apply_catalog_exceptions(entries):
+    for alias, (source, display_name) in CATALOG_ALIASES.items():
+        if alias in entries or source not in entries:
+            continue
+        source_entry = entries[source]
+        entries[alias] = CatalogEntry(
+            key=alias,
+            name=display_name,
+            versions=list(source_entry.versions),
+        )
+    for key, (name, versions) in SUPPLEMENTAL_CATALOG.items():
+        if key not in entries:
+            entries[key] = CatalogEntry(
+                key=key,
+                name=name,
+                versions=list(versions),
+            )
 
 
 def fetch_installomator_labels():
@@ -321,6 +364,77 @@ def move_app(app, dest_dir, yes):
     return run_privileged(cmd)
 
 
+def unique_destination(folder, name):
+    """Return a non-overwriting destination, adding -2, -3, ... if needed."""
+    stem, ext = os.path.splitext(name)
+    destination = os.path.join(folder, name)
+    suffix = 2
+    while os.path.exists(destination):
+        destination = os.path.join(folder, f"{stem}-{suffix}{ext}")
+        suffix += 1
+    return destination
+
+
+def collect_readme_documents():
+    """Move PDFs and RTFs from nested app folders into one top-level ReadMe."""
+    if not os.path.isdir(ECLECTICLIGHT_FOLDER):
+        return 0
+    readme_folder = os.path.join(ECLECTICLIGHT_FOLDER, README_FOLDER_NAME)
+    documents = []
+    for root, dirnames, filenames in os.walk(ECLECTICLIGHT_FOLDER):
+        dirnames[:] = [
+            name for name in dirnames
+            if not name.endswith(".app")
+            and os.path.abspath(os.path.join(root, name)) != os.path.abspath(readme_folder)
+        ]
+        for name in filenames:
+            if os.path.splitext(name)[1].lower() in {".pdf", ".rtf"}:
+                documents.append(os.path.join(root, name))
+    if not documents:
+        return 0
+    moved = 0
+    for source in sorted(documents):
+        destination = unique_destination(readme_folder, os.path.basename(source))
+        if run_privileged(f"mkdir -p {shlex.quote(readme_folder)} && "
+                          f"mv {shlex.quote(source)} {shlex.quote(destination)}"):
+            print(f"  readme: {source} -> {destination}")
+            moved += 1
+        else:
+            print(f"  could not move readme document: {source}")
+    return moved
+
+
+def remove_empty_organization_folders():
+    """Remove empty nested directories, never the main or ReadMe folder."""
+    if not os.path.isdir(ECLECTICLIGHT_FOLDER):
+        return 0
+    readme_folder = os.path.abspath(os.path.join(ECLECTICLIGHT_FOLDER, README_FOLDER_NAME))
+    candidates = []
+    for root, dirnames, _ in os.walk(ECLECTICLIGHT_FOLDER):
+        dirnames[:] = [
+            name for name in dirnames
+            if not name.endswith(".app")
+            and os.path.abspath(os.path.join(root, name)) != readme_folder
+        ]
+        candidates.extend(os.path.join(root, name) for name in dirnames)
+    removed = 0
+    for root in reversed(candidates):
+        try:
+            os.rmdir(root)
+            print(f"  removed empty folder {root}")
+            removed += 1
+        except OSError:
+            # It may be empty but owned by root.
+            try:
+                empty = not os.listdir(root)
+            except OSError:
+                empty = False
+            if empty and run_privileged(f"rmdir {shlex.quote(root)}"):
+                print(f"  removed empty folder {root}")
+                removed += 1
+    return removed
+
+
 def trash(path):
     script = 'tell application "Finder" to delete POSIX file "' + path.replace('"', '\\"') + '"'
     return subprocess.run(["osascript", "-e", script], check=False).returncode == 0
@@ -369,9 +483,12 @@ def download_and_install(app, entry, key, yes):
     for root, dirnames, _ in os.walk(tmp):
         for name in dirnames:
             if name.endswith(".app"):
-                found.append(os.path.join(root, name))
+                path = os.path.join(root, name)
+                candidate = read_app(path)
+                if candidate and app_key(candidate) == key:
+                    found.append(path)
     if not found:
-        print("  no .app found in the download")
+        print(f"  no matching {app.bundle_id} app found in the download")
         return False
     newest = max(found, key=lambda p: verkey(read_app(p).version if read_app(p) else ""))
     ver = entry.latest()[0]
@@ -471,10 +588,10 @@ def print_report(apps, catalog, labels, installomator):
             print(f"    {e.name:<24} latest {e.latest()[0]}  {e.latest()[1]}")
         print()
 
-    loose = [a for a in apps if not a.path.startswith(ECLECTICLIGHT_FOLDER)]
+    loose = [a for a in apps if needs_organization(a)]
     if loose:
-        print(f"{len(loose)} copy/copies outside /Applications/EclecticLight.")
-        print("Tidy them up: ./eclectic-updater.py organize")
+        print(f"{len(loose)} copy/copies need organization.")
+        print("Flatten them into the main folder: ./eclectic-updater.py organize")
         print()
 
     outdated = [g for g in info.values() if g["status"] in ("outdated", "downloads-only-outdated")]
@@ -567,25 +684,32 @@ def update_outdated(apps, catalog, labels, installomator, only_label=None, yes=F
                 print(f"  trashed {c.path}")
                 deep_clean_parent(c.path, yes)
 
-    print("\nTip: ./eclectic-updater.py organize moves all copies "
-          "into /Applications/EclecticLight.")
+    print("\nTip: ./eclectic-updater.py organize flattens apps and collects "
+          "PDF/RTF files in ReadMe/.")
     return 0
 
 
 def organize(apps, yes=False):
-    print(f"Organizing into {ECLECTICLIGHT_FOLDER}/ …")
-    candidates = [a for a in apps if not a.path.startswith(ECLECTICLIGHT_FOLDER)]
-    if not candidates:
-        print("Nothing to organize — all copies already under /Applications/EclecticLight.")
+    print(f"Flattening apps into {ECLECTICLIGHT_FOLDER}/ …")
+    candidates = [a for a in apps if needs_organization(a)]
+    if not candidates and not os.path.isdir(ECLECTICLIGHT_FOLDER):
+        print("Nothing to organize.")
         return 0
     if not ensure_eclecticlight_folder(yes):
         return 0
     moved = 0
     for app in sorted(candidates, key=lambda a: app_key(a)):
-        dest_dir = os.path.join(ECLECTICLIGHT_FOLDER, organize_folder_name(app))
-        if move_app(app, dest_dir, yes):
+        if move_app(app, ECLECTICLIGHT_FOLDER, yes):
             moved += 1
-    print(f"Moved {moved} copy/copies into {ECLECTICLIGHT_FOLDER}/")
+    clean_files = yes or input(
+        "  collect PDF/RTF documents and remove empty folders? [y/N] "
+    ).strip().lower() == "y"
+    documents = collect_readme_documents() if clean_files else 0
+    removed = remove_empty_organization_folders() if clean_files else 0
+    print(f"Moved {moved} app copy/copies into {ECLECTICLIGHT_FOLDER}/")
+    print(f"Moved {documents} PDF/RTF document(s) into "
+          f"{ECLECTICLIGHT_FOLDER}/{README_FOLDER_NAME}/")
+    print(f"Removed {removed} empty folder(s)")
     return 0
 
 
@@ -594,7 +718,7 @@ def main():
     parser.add_argument("mode", nargs="?", default="check",
                         choices=["check", "update", "organize"],
                         help="check = report only (default); update = run updates; "
-                             "organize = move copies into /Applications/EclecticLight")
+                             "organize = flatten apps and collect PDF/RTF documents")
     parser.add_argument("--also", action="append", default=[],
                         help="extra directory to scan for installed apps (repeatable)")
     parser.add_argument("--apps-only", action="store_true",

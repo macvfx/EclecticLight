@@ -8,11 +8,22 @@ INSTALLOMATOR_LABELS_URL="https://raw.githubusercontent.com/Installomator/Instal
 INSTALLOMATOR_SCRIPT_URL="https://raw.githubusercontent.com/Installomator/Installomator/main/Installomator.sh"
 DOWNLOADS_DIR="$HOME/Downloads"
 ECLECTICLIGHT_FOLDER="/Applications/EclecticLight"
+README_FOLDER_NAME="ReadMe"
 DEFAULT_SEARCH_DIRS=("/Applications" "$HOME/Applications" "$DOWNLOADS_DIR")
 SELF="eclectic-updater.zsh"
 
 typeset -A ZIP_PREFIX_OVERRIDES
 ZIP_PREFIX_OVERRIDES[sk]=silentknight3
+
+typeset -A CATALOG_ALIAS_SOURCE CATALOG_ALIAS_NAME
+CATALOG_ALIAS_SOURCE[deeparchive]=deeptools
+CATALOG_ALIAS_NAME[deeparchive]=DeepArchive
+CATALOG_ALIAS_SOURCE[deepunarchive]=deeptools
+CATALOG_ALIAS_NAME[deepunarchive]=DeepUnarchive
+CATALOG_ALIAS_SOURCE[deepcopy]=deeptools
+CATALOG_ALIAS_NAME[deepcopy]=DeepCopy
+CATALOG_ALIAS_SOURCE[skintm]=skint
+CATALOG_ALIAS_NAME[skintm]=SkintM
 
 typeset -A NON_APP
 for __x in macappscaffold scriptbase dropsy basicpdfviewer help lockrattlerhelp \
@@ -36,7 +47,7 @@ Usage: $SELF [mode] [options]
 Modes:
   check     (default) scan and report only
   update    update every out-of-date copy found (Installomator label, or download)
-  organize  move loose copies into /Applications/EclecticLight/
+  organize  flatten apps into /Applications/EclecticLight/, collect PDF/RTF docs
 
 Options:
   --apps-only               only scan /Applications and ~/Applications
@@ -75,11 +86,8 @@ app_location() {
   print -r -- "Custom"
 }
 
-organize_folder_name() {
-  local n
-  n="${$(name_of "$1"):l}"
-  n="${n//[^a-z0-9]/}"
-  print -r -- "${n}${$(version_of "$1")//[^0-9]/}"
+needs_organization() {
+  [[ "${$(path_of "$1"):h}" != "$ECLECTICLIGHT_FOLDER" ]]
 }
 
 ver_less() {
@@ -205,6 +213,21 @@ build_catalog() {
     (( count++ > 2000 )) && break
     rest="${rest[$endpos,-1]}"
   done
+  apply_catalog_exceptions
+}
+
+apply_catalog_exceptions() {
+  local alias source
+  for alias in deeparchive deepunarchive deepcopy skintm; do
+    source="${CATALOG_ALIAS_SOURCE[$alias]}"
+    [[ -n "${CATALOG[$alias]}" || -z "${CATALOG[$source]}" ]] && continue
+    CATALOG[$alias]="${CATALOG_ALIAS_NAME[$alias]}"$'\n'"${CATALOG[$source]#*$'\n'}"
+    CATALOG_KEYS+=("$alias")
+  done
+  if [[ -z "${CATALOG[appexindexer]}" ]]; then
+    CATALOG[appexindexer]="AppexIndexer"$'\n'"1.1|https://eclecticlight.co/wp-content/uploads/2025/06/appexindexer11.zip|(Sonoma 14.6 and later)"
+    CATALOG_KEYS+=(appexindexer)
+  fi
 }
 
 catalog_name() { print -r -- "${CATALOG[$1]%%$'\n'*}" }
@@ -491,6 +514,67 @@ move_app() {
   run_privileged "mkdir -p \"$dest_dir\" && mv \"$p\" \"$dest\""
 }
 
+unique_destination() {
+  local folder name stem ext destination suffix
+  folder="$1"; name="$2"
+  if [[ "$name" == *.* ]]; then
+    stem="${name%.*}"; ext=".${name##*.}"
+  else
+    stem="$name"; ext=""
+  fi
+  destination="$folder/$name"
+  suffix=2
+  while [[ -e "$destination" ]]; do
+    destination="$folder/$stem-$suffix$ext"
+    (( suffix++ ))
+  done
+  print -r -- "$destination"
+}
+
+collect_readme_documents() {
+  local readme source destination
+  local -a documents
+  readme="$ECLECTICLIGHT_FOLDER/$README_FOLDER_NAME"
+  documents=()
+  while IFS= read -r -d '' source; do documents+=("$source"); done < <(
+    find "$ECLECTICLIGHT_FOLDER" \
+      \( -type d \( -name '*.app' -o -path "$readme" \) -prune \) -o \
+      \( -type f \( -iname '*.pdf' -o -iname '*.rtf' \) -print0 \)
+  )
+  DOCS_MOVED=0
+  for source in "${documents[@]}"; do
+    destination="$(unique_destination "$readme" "${source:t}")"
+    if run_privileged "mkdir -p \"$readme\" && mv \"$source\" \"$destination\""; then
+      print -r -- "  readme: $source -> $destination"
+      (( DOCS_MOVED++ ))
+    else
+      print -r -- "  could not move readme document: $source"
+    fi
+  done
+}
+
+remove_empty_organization_folders() {
+  local readme folder i
+  local -a folders
+  readme="$ECLECTICLIGHT_FOLDER/$README_FOLDER_NAME"
+  folders=()
+  while IFS= read -r -d '' folder; do folders+=("$folder"); done < <(
+    find "$ECLECTICLIGHT_FOLDER" \
+      \( -type d \( -name '*.app' -o -path "$readme" \) -prune \) -o \
+      \( -type d -print0 \)
+  )
+  FOLDERS_REMOVED=0
+  for (( i = ${#folders}; i >= 1; i-- )); do
+    folder="${folders[$i]}"
+    [[ "$folder" == "$ECLECTICLIGHT_FOLDER" || "$folder" == "$readme" ]] && continue
+    [[ -n "$(ls -A "$folder" 2>/dev/null)" ]] && continue
+    if rmdir "$folder" 2>/dev/null || run_privileged "rmdir \"$folder\""; then
+      print -r -- "  removed empty folder $folder"
+      (( FOLDERS_REMOVED++ ))
+    fi
+  done
+}
+
 download_and_install() {
   local rec key yes latest url tmp zf newest nv r v ver digits dest_dir dest app
   local -a found
@@ -511,13 +595,14 @@ download_and_install() {
   newest=""; nv=""
   for app in "${found[@]}"; do
     r="$(read_app "$app")" || continue
+    [[ "$(app_key "$r")" == "$key" ]] || continue
     v="$(version_of "$r")"
     if [[ -z "$newest" ]] || ver_less "$nv" "$v"; then
       newest="$app"; nv="$v"
     fi
   done
   if [[ -z "$newest" ]]; then
-    print -r -- "  no .app found in the download"
+    print -r -- "  no matching co.eclecticlight.$key app found in the download"
     return 1
   fi
   ver="$(fld "$latest" 1)"
@@ -623,11 +708,11 @@ print_report() {
   fi
   loose=()
   for r in "${APPS[@]}"; do
-    [[ "$(path_of "$r")" == "$ECLECTICLIGHT_FOLDER"* ]] || loose+=("$r")
+    needs_organization "$r" && loose+=("$r")
   done
   if [[ ${#loose} -gt 0 ]]; then
-    print -r -- "${#loose} copy/copies outside /Applications/EclecticLight."
-    print -r -- "Tidy them up: ./$SELF organize"
+    print -r -- "${#loose} copy/copies need organization."
+    print -r -- "Flatten them into the main folder: ./$SELF organize"
     print -r -- ""
   fi
   stale=()
@@ -750,31 +835,38 @@ update_outdated() {
     done
   fi
   print -r -- ""
-  print -r -- "Tip: ./$SELF organize moves all copies into /Applications/EclecticLight."
+  print -r -- "Tip: ./$SELF organize flattens apps and collects PDF/RTF files in ReadMe/."
   return 0
 }
 
 organize() {
-  local yes rec c dest_dir moved
+  local yes rec c moved
   local -a candidates sorted
   yes="$1"
-  print -r -- "Organizing into $ECLECTICLIGHT_FOLDER/ …"
+  print -r -- "Flattening apps into $ECLECTICLIGHT_FOLDER/ …"
   candidates=()
   for rec in "${APPS[@]}"; do
-    [[ "$(path_of "$rec")" == "$ECLECTICLIGHT_FOLDER"* ]] || candidates+=("$rec")
+    needs_organization "$rec" && candidates+=("$rec")
   done
-  if [[ ${#candidates} -eq 0 ]]; then
-    print -r -- "Nothing to organize — all copies already under /Applications/EclecticLight."
+  if [[ ${#candidates} -eq 0 && ! -d "$ECLECTICLIGHT_FOLDER" ]]; then
+    print -r -- "Nothing to organize."
     return 0
   fi
   ensure_eclecticlight_folder "$yes" || return 1
   sorted=( "${(@f)$(print -rl -- "${candidates[@]}" | while read -r line; do print -r -- "$(app_key "$line")|$line"; done | sort | while read -r line; do print -r -- "${line#*|}"; done)}" )
   moved=0
   for c in "${sorted[@]}"; do
-    dest_dir="$ECLECTICLIGHT_FOLDER/$(organize_folder_name "$c")"
-    move_app "$c" "$dest_dir" "$yes" && (( moved++ ))
+    move_app "$c" "$ECLECTICLIGHT_FOLDER" "$yes" && (( moved++ ))
   done
-  print -r -- "Moved $moved copy/copies into $ECLECTICLIGHT_FOLDER/"
+  DOCS_MOVED=0
+  FOLDERS_REMOVED=0
+  if [[ "$yes" == "1" ]] || confirm_yn "  collect PDF/RTF documents and remove empty folders? [y/N] "; then
+    collect_readme_documents
+    remove_empty_organization_folders
+  fi
+  print -r -- "Moved $moved app copy/copies into $ECLECTICLIGHT_FOLDER/"
+  print -r -- "Moved $DOCS_MOVED PDF/RTF document(s) into $ECLECTICLIGHT_FOLDER/$README_FOLDER_NAME/"
+  print -r -- "Removed $FOLDERS_REMOVED empty folder(s)"
 }
 
 mode="check"
