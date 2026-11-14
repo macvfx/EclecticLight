@@ -31,6 +31,8 @@ import re
 import shlex
 import subprocess
 import sys
+import threading
+import time
 import urllib.request
 from dataclasses import dataclass, field
 
@@ -304,14 +306,108 @@ def install_installomator():
     return False
 
 
+# --- Administrator rights -------------------------------------------------
+#
+# Most of what this script does needs none: an admin user can already write to
+# /Applications, so moves, new folders and empty-folder removal are tried as the
+# current user first. Only what that cannot do goes through run_privileged — and
+# Installomator, which always has to run as root.
+#
+# When rights are needed the password is asked for once, in the terminal, and
+# kept for the rest of the run. Each call used to raise its own dialog.
+
+_SUDO = {"declined": False, "keepalive": False}
+
+
+def _sudo_ready():
+    return subprocess.run(
+        ["sudo", "-n", "true"], capture_output=True, text=True, check=False
+    ).returncode == 0
+
+
+def _keep_sudo_alive():
+    if _SUDO["keepalive"]:
+        return
+    _SUDO["keepalive"] = True
+
+    def refresh():
+        while True:
+            time.sleep(50)
+            subprocess.run(["sudo", "-n", "-v"], capture_output=True, check=False)
+
+    threading.Thread(target=refresh, daemon=True).start()
+
+
 def run_privileged(cmd):
-    sudo_n = subprocess.run(
-        ["sudo", "-n", "-p", "", "true"], capture_output=True, text=True, check=False
-    )
-    if sudo_n.returncode == 0:
-        return subprocess.run(["sudo", "-p", "", "sh", "-c", cmd], check=False).returncode == 0
-    osa = 'do shell script "' + cmd.replace('"', '\\"') + '" with administrator privileges'
+    """Run one shell command as root, asking for the password at most once per run."""
+    if not _sudo_ready() and sys.stdin.isatty() and not _SUDO["declined"]:
+        print("  Administrator rights are needed. You will be asked once for this run.")
+        if subprocess.run(["sudo", "-v"], check=False).returncode != 0:
+            _SUDO["declined"] = True
+    if _sudo_ready():
+        _keep_sudo_alive()
+        return subprocess.run(["sudo", "sh", "-c", cmd], check=False).returncode == 0
+    if sys.stdin.isatty():
+        # Asked in the terminal and refused: do not follow up with a dialog.
+        return False
+    # No terminal to ask in (launched from another program): fall back to a dialog.
+    escaped = cmd.replace("\\", "\\\\").replace('"', '\\"')
+    osa = 'do shell script "' + escaped + '" with administrator privileges'
     return subprocess.run(["osascript", "-e", osa], check=False).returncode == 0
+
+
+def _nearest_existing(path):
+    path = os.path.abspath(path)
+    while not os.path.exists(path):
+        parent = os.path.dirname(path)
+        if parent == path:
+            break
+        path = parent
+    return path
+
+
+def _can_move_unprivileged(source, dest_dir):
+    """True when the current user can complete the move without leaving half of it behind.
+
+    Both parent folders must be writable. Across volumes a move is a copy and then a
+    delete, so the source must also be the user's own — otherwise the copy succeeds, the
+    delete fails, and a second, elevated attempt would nest the item inside the first copy.
+    """
+    source_parent = os.path.dirname(os.path.abspath(source))
+    target = _nearest_existing(dest_dir)
+    mode = os.W_OK | os.X_OK
+    if not (os.access(source_parent, mode) and os.access(target, mode)):
+        return False
+    try:
+        if os.stat(source_parent).st_dev == os.stat(target).st_dev:
+            return True
+        return os.lstat(source).st_uid == os.getuid()
+    except OSError:
+        return False
+
+
+def move_path(source, dest):
+    """Move a file or bundle, as the current user if possible, as root only if not."""
+    dest_dir = os.path.dirname(dest)
+    if _can_move_unprivileged(source, dest_dir):
+        try:
+            os.makedirs(dest_dir, exist_ok=True)
+            moved = subprocess.run(
+                ["mv", source, dest], stderr=subprocess.DEVNULL, check=False
+            ).returncode == 0
+        except OSError:
+            moved = False
+        if moved:
+            return True
+        if os.path.exists(dest):
+            return False
+    owner = f"{os.getuid()}:{os.getgid()}"
+    quoted_dir = shlex.quote(dest_dir)
+    # A folder created as root is handed back to the user, so the next run needs no rights.
+    return run_privileged(
+        f"[ -d {quoted_dir} ] || {{ mkdir -p {quoted_dir} && chown {owner} {quoted_dir}; }}; "
+        f"mv {shlex.quote(source)} {shlex.quote(dest)}"
+    )
 
 
 def ensure_eclecticlight_folder(yes=False):
@@ -326,7 +422,8 @@ def ensure_eclecticlight_folder(yes=False):
         print(f"Created {ECLECTICLIGHT_FOLDER}.")
         return True
     except OSError:
-        if run_privileged(f'mkdir -p "{ECLECTICLIGHT_FOLDER}"'):
+        folder = shlex.quote(ECLECTICLIGHT_FOLDER)
+        if run_privileged(f"mkdir -p {folder} && chown {os.getuid()}:{os.getgid()} {folder}"):
             print(f"Created {ECLECTICLIGHT_FOLDER}.")
             return True
         print(f"Could not create {ECLECTICLIGHT_FOLDER}.")
@@ -360,8 +457,7 @@ def move_app(app, dest_dir, yes):
     if not yes and input(f"  move {app.path} -> {dest}? [y/N] ").strip().lower() != "y":
         return False
     print(f"  moving to {dest}")
-    cmd = f'mkdir -p "{dest_dir}" && mv "{app.path}" "{dest}"'
-    return run_privileged(cmd)
+    return move_path(app.path, dest)
 
 
 def unique_destination(folder, name):
@@ -395,8 +491,7 @@ def collect_readme_documents():
     moved = 0
     for source in sorted(documents):
         destination = unique_destination(readme_folder, os.path.basename(source))
-        if run_privileged(f"mkdir -p {shlex.quote(readme_folder)} && "
-                          f"mv {shlex.quote(source)} {shlex.quote(destination)}"):
+        if move_path(source, destination):
             print(f"  readme: {source} -> {destination}")
             moved += 1
         else:
@@ -500,8 +595,7 @@ def download_and_install(app, entry, key, yes):
         return False
     if not yes and input(f"  move downloaded app into {dest}? [y/N] ").strip().lower() != "y":
         return False
-    cmd = f'mkdir -p "{dest_dir}" && mv "{newest}" "{dest}"'
-    return run_privileged(cmd)
+    return move_path(newest, dest)
 
 
 def analyze_groups(apps, catalog, labels):

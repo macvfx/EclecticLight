@@ -398,16 +398,82 @@ analyze_groups() {
   done
 }
 
+# --- Administrator rights -------------------------------------------------
+#
+# Most of what this script does needs none: an admin user can already write to
+# /Applications, so moves, new folders and empty-folder removal are tried as the
+# current user first. Only what that cannot do goes through run_privileged — and
+# Installomator, which always has to run as root.
+#
+# When rights are needed the password is asked for once, in the terminal, and
+# kept for the rest of the run. Each call used to raise its own dialog.
+
+SUDO_DECLINED=0
+SUDO_KEEPALIVE_PID=""
+
+keep_sudo_alive() {
+  [[ -n "$SUDO_KEEPALIVE_PID" ]] && return 0
+  ( while kill -0 $$ 2>/dev/null; do sleep 50; sudo -n -v 2>/dev/null; done ) &!
+  SUDO_KEEPALIVE_PID=$!
+  # No trap: the loop watches this shell and ends by itself within a minute of it exiting.
+}
+
 run_privileged() {
   local cmd osa
   cmd="$1"
+  if ! sudo -n true 2>/dev/null && [[ -t 0 ]] && (( ! SUDO_DECLINED )); then
+    print -r -- "  Administrator rights are needed. You will be asked once for this run."
+    sudo -v || SUDO_DECLINED=1
+  fi
   if sudo -n true 2>/dev/null; then
+    keep_sudo_alive
     sudo sh -c "$cmd" 2>/dev/null
     return $?
   fi
-  osa="do shell script \"${cmd//\"/\\\"}\" with administrator privileges"
+  # Asked in the terminal and refused: do not follow up with a dialog.
+  [[ -t 0 ]] && return 1
+  # No terminal to ask in (launched from another program): fall back to a dialog.
+  osa="${cmd//\\/\\\\}"
+  osa="do shell script \"${osa//\"/\\\"}\" with administrator privileges"
   osascript -e "$osa" >/dev/null 2>&1
   return $?
+}
+
+nearest_existing() {
+  local p
+  p="${1:a}"
+  while [[ ! -e "$p" && "$p" != "/" ]]; do p="${p:h}"; done
+  print -r -- "$p"
+}
+
+# True when the current user can complete the move without leaving half of it
+# behind. Both parent folders must be writable. Across volumes a move is a copy
+# and then a delete, so the source must also be the user's own — otherwise the
+# copy succeeds, the delete fails, and a second, elevated attempt would nest the
+# item inside the first copy.
+can_move_unprivileged() {
+  local source_parent target
+  source_parent="${1:a:h}"
+  target="$(nearest_existing "$2")"
+  [[ -w "$source_parent" && -x "$source_parent" && -w "$target" && -x "$target" ]] || return 1
+  [[ "$(stat -f %d "$source_parent" 2>/dev/null)" == "$(stat -f %d "$target" 2>/dev/null)" ]] && return 0
+  [[ -O "$1" ]]
+}
+
+# Move a file or bundle, as the current user if possible, as root only if not.
+move_path() {
+  local source dest dest_dir owner
+  source="$1"; dest="$2"
+  dest_dir="${dest:h}"
+  if can_move_unprivileged "$source" "$dest_dir"; then
+    if mkdir -p "$dest_dir" 2>/dev/null && mv "$source" "$dest" 2>/dev/null; then
+      return 0
+    fi
+    [[ -e "$dest" ]] && return 1
+  fi
+  owner="$(id -u):$(id -g)"
+  # A folder created as root is handed back to the user, so the next run needs no rights.
+  run_privileged "[ -d ${(qq)dest_dir} ] || { mkdir -p ${(qq)dest_dir} && chown $owner ${(qq)dest_dir}; }; mv ${(qq)source} ${(qq)dest}"
 }
 
 confirm_yn() {
@@ -430,7 +496,7 @@ ensure_eclecticlight_folder() {
     print -r -- "Created $ECLECTICLIGHT_FOLDER."
     return 0
   fi
-  if run_privileged "mkdir -p \"$ECLECTICLIGHT_FOLDER\""; then
+  if run_privileged "mkdir -p ${(qq)ECLECTICLIGHT_FOLDER} && chown $(id -u):$(id -g) ${(qq)ECLECTICLIGHT_FOLDER}"; then
     print -r -- "Created $ECLECTICLIGHT_FOLDER."
     return 0
   fi
@@ -511,7 +577,7 @@ move_app() {
     return 1
   fi
   print -r -- "  moving to $dest"
-  run_privileged "mkdir -p \"$dest_dir\" && mv \"$p\" \"$dest\""
+  move_path "$p" "$dest"
 }
 
 unique_destination() {
@@ -544,7 +610,7 @@ collect_readme_documents() {
   DOCS_MOVED=0
   for source in "${documents[@]}"; do
     destination="$(unique_destination "$readme" "${source:t}")"
-    if run_privileged "mkdir -p \"$readme\" && mv \"$source\" \"$destination\""; then
+    if move_path "$source" "$destination"; then
       print -r -- "  readme: $source -> $destination"
       (( DOCS_MOVED++ ))
     else
@@ -616,7 +682,7 @@ download_and_install() {
   if [[ "$yes" != "1" ]] && ! confirm_yn "  move downloaded app into $dest? [y/N] "; then
     return 1
   fi
-  run_privileged "mkdir -p \"$dest_dir\" && mv \"$newest\" \"$dest\""
+  move_path "$newest" "$dest"
 }
 
 sorted_group_keys() {

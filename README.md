@@ -92,8 +92,15 @@ Eclectic Light site search in an embedded web view. Search results are for
 research only; a result must be verified and added to the exception catalog
 before the updater will offer its ZIP as an update.
 
-Privilege prompts use passwordless `sudo` when configured, otherwise an
-AppleScript admin-password dialog. Nothing is downloaded or modified by
+Administrator rights are only requested when they are needed. An admin user
+can already write to `/Applications`, so moving apps, collecting documents and
+removing empty folders are done as that user, with no prompt at all. When
+something does need rights — Installomator always runs as root, and a folder
+owned by root cannot be changed otherwise — the scripts ask for the password
+**once, in the terminal**, and keep it for the rest of the run. A folder they
+have to create as root is handed back to you, so the next run needs nothing.
+Refusing the password skips those steps; it is not asked again. With no
+terminal to ask in, they fall back to an admin-password dialog. Nothing is downloaded or modified by
 `check` — only `update`/`organize` change anything, and always with a prompt
 unless you pass `--yes`.
 
