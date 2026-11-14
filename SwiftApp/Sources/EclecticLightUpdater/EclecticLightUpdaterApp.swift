@@ -28,12 +28,12 @@ struct EclecticLightUpdaterApp: App {
 
 extension EclecticLightUpdaterApp {
     static let helpText = """
-    Eclectic Light Updater 1.5.1
+    Eclectic Light Updater 1.5.2
 
     Refresh scans /Applications, ~/Applications and ~/Downloads, then fetches the download catalog. It finds extracted app bundles, not ZIP archives. App discovery skips symbolic links to folders and app bundles, including symbolic-link scan roots.
 
     Help directory
-    Use Apps A–Z for an alphabetical index or By Category to browse the bundled product guide. Search filters both views. Product Page links open the publisher’s website. The directory is an offline snapshot; use the download catalog for current versions and compatibility.
+    Click an app’s name or information icon in the main list to see what it does and open its publisher page. Use Apps A–Z for an alphabetical index or By Category to browse the bundled product guide. Search matches names, descriptions and categories in both views. Product Page links open the publisher’s website. The directory is an offline snapshot; use the download catalog for current versions and compatibility.
 
     Install apps
     Choose Not downloaded to browse or search missing apps. Install downloads one app. Install All includes every missing catalog app. Install All Compatible includes only apps whose latest description matches your macOS, regardless of the search filter.

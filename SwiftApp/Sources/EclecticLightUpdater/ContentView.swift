@@ -122,7 +122,7 @@ struct ContentView: View {
                     }, id: \.key) { entry in
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(entry.name).fontWeight(.medium)
+                                ProductInfoButton(name: entry.name, productKey: entry.key)
                                 Text("Version \(entry.latest?.version ?? "—")")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -163,7 +163,7 @@ struct ContentView: View {
                     .disabled(model.pendingTools.isEmpty)
                     ForEach(model.commandLineTools, id: \.key) { entry in
                         HStack {
-                            Text(entry.name)
+                            ProductInfoButton(name: entry.name, productKey: entry.key)
                             Spacer()
                             Button(model.isToolInstalled(entry) ? "Installed" : "Install Package") {
                                 Task { await model.installTool(entry) }
@@ -297,7 +297,7 @@ struct OutdatedRow: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(group.name).fontWeight(.medium)
+                ProductInfoButton(name: group.name, productKey: group.key)
                 Text("\(group.target.version) → \(group.latest?.version ?? "?")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -340,7 +340,7 @@ struct CopyRow: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(app.name).fontWeight(.medium)
+                ProductInfoButton(name: app.name, productKey: app.key)
                 Text(app.version)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -368,7 +368,7 @@ struct CurrentRow: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(group.name).fontWeight(.medium)
+                ProductInfoButton(name: group.name, productKey: group.key)
                 Text("installed \(group.newestInstalled?.version ?? group.target.version) · latest \(group.latest?.version ?? "—")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
